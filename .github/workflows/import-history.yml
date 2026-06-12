@@ -1,4 +1,4 @@
-name: Import local history
+name: Import application source
 
 on:
   workflow_dispatch:
@@ -11,9 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Restore repository history
+      - name: Import source files
         run: |
-          git fetch ./question-bank-studio.bundle main:refs/heads/imported-main
-          git push origin imported-main:main --force
+          tar -xzf question-bank-studio-source.tar.gz
+          rm question-bank-studio-source.tar.gz question-bank-studio.bundle
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Import application source"
+          git push
