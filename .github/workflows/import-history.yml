@@ -1,0 +1,19 @@
+name: Import local history
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Restore repository history
+        run: |
+          git fetch ./question-bank-studio.bundle main:refs/heads/imported-main
+          git push origin imported-main:main --force
