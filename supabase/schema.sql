@@ -19,6 +19,7 @@ create table public.question_banks (
   description text not null default '',
   status public.bank_status not null default 'draft',
   visibility public.bank_visibility not null default 'private',
+  content_mode text not null default 'questions' check (content_mode in ('questions', 'text')),
   source_file_path text,
   source_file_name text not null default '',
   source_file_type text not null default '',
@@ -76,6 +77,54 @@ create table public.import_jobs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table public.registration_invites (
+  id uuid primary key default gen_random_uuid(),
+  code_hash text not null unique,
+  label text not null default '',
+  max_uses integer not null default 1 check (max_uses > 0),
+  use_count integer not null default 0 check (use_count >= 0),
+  expires_at timestamptz,
+  enabled boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+revoke all on public.registration_invites from anon, authenticated, public;
+
+create or replace function public.hook_validate_signup_invite(event jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  invite_code text := trim(coalesce(event->'user'->'user_metadata'->>'signup_code', ''));
+  invite_id uuid;
+begin
+  select id into invite_id
+  from public.registration_invites
+  where invite_code <> ''
+    and code_hash = encode(extensions.digest(invite_code, 'sha256'), 'hex')
+    and enabled
+    and use_count < max_uses
+    and (expires_at is null or expires_at > now())
+  for update;
+
+  if invite_id is null then
+    return jsonb_build_object('error', jsonb_build_object(
+      'http_code', 403,
+      'message', 'Registration access denied: invalid or expired invite code.'
+    ));
+  end if;
+
+  update public.registration_invites set use_count = use_count + 1 where id = invite_id;
+  return '{}'::jsonb;
+end;
+$$;
+
+grant usage on schema public to supabase_auth_admin;
+grant execute on function public.hook_validate_signup_invite(jsonb) to supabase_auth_admin;
+revoke execute on function public.hook_validate_signup_invite(jsonb) from anon, authenticated, public;
 
 create index question_banks_owner_updated_idx on public.question_banks (owner_id, updated_at desc);
 create index question_banks_public_idx on public.question_banks (visibility, status) where visibility = 'public' and status = 'published';

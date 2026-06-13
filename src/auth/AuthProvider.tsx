@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
     },
-    async signUpWithPassword(username, password) {
+    async signUpWithPassword(username, password, inviteCode) {
       if (!supabase) throw new Error('Supabase 尚未配置。')
       const normalizedUsername = normalizeUsername(username)
       const email = await usernameToInternalEmail(normalizedUsername)
@@ -43,7 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
-          data: { username: username.trim(), normalized_username: normalizedUsername },
+          data: {
+            username: username.trim(),
+            normalized_username: normalizedUsername,
+            signup_code: inviteCode.trim(),
+          },
         },
       })
       if (error) throw error

@@ -2,12 +2,31 @@ import { rebuildPdfPageText } from './pdf-text'
 
 export type SupportedFileType = 'text' | 'pdf' | 'docx'
 
+export interface PdfTextAssessment {
+  pageCount: number
+  textPageCount: number
+  characterCount: number
+  likelyScanned: boolean
+}
+
 export function getSupportedFileType(file: File): SupportedFileType | null {
   const extension = file.name.split('.').pop()?.toLocaleLowerCase()
   if (extension === 'txt' || extension === 'md') return 'text'
   if (extension === 'pdf') return 'pdf'
   if (extension === 'docx') return 'docx'
   return null
+}
+
+export function assessPdfTextExtraction(pages: string[]): PdfTextAssessment {
+  const characterCounts = pages.map((page) => page.replace(/\s/g, '').length)
+  const characterCount = characterCounts.reduce((sum, count) => sum + count, 0)
+  const textPageCount = characterCounts.filter((count) => count >= 20).length
+  const pageCount = pages.length
+  const textPageRatio = pageCount ? textPageCount / pageCount : 0
+  const likelyScanned = characterCount < 20
+    || (pageCount >= 3 && textPageRatio < 0.2 && characterCount < pageCount * 40)
+
+  return { pageCount, textPageCount, characterCount, likelyScanned }
 }
 
 async function extractPdf(file: File) {
@@ -27,6 +46,11 @@ async function extractPdf(file: File) {
     if (/^\d{1,4}$/.test(lines[0]?.trim())) lines.shift()
     if (/^\d{1,4}$/.test(lines.at(-1)?.trim() ?? '')) lines.pop()
     pages.push(lines.join('\n'))
+  }
+
+  const assessment = assessPdfTextExtraction(pages)
+  if (assessment.likelyScanned) {
+    throw new Error(`检测到扫描版 PDF（${assessment.pageCount} 页，未提取到足够文字）。这类文件需要 OCR 识别，请先转换为可搜索 PDF 或等待 OCR 模块处理。`)
   }
 
   return pages.join('\n')

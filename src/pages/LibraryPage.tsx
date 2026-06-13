@@ -113,6 +113,10 @@ export function LibraryPage() {
     setManagingGroup((value) => !value)
   }
 
+  function bankCountLabel(bank: QuestionBank) {
+    return `${bank.questionCount} ${bank.contentMode === 'text' ? '个片段' : '道题'}`
+  }
+
   if (loading) return <div className="empty-panel">正在读取题库工作区…</div>
 
   return (
@@ -128,10 +132,10 @@ export function LibraryPage() {
             const groupBanks = banks.filter((bank) => groupBankIds.includes(bank.id))
             return <div className="library-group" key={group.id}>
               <NavLink className="group-link" to={`/library/group/${group.id}`} onClick={() => setManagingGroup(false)}><FolderIcon /><span>{group.name}</span><b>{groupBanks.length}</b></NavLink>
-              <div className="group-bank-list">{groupBanks.map((bank) => <NavLink to={`/library/bank/${bank.id}`} onClick={() => setManagingGroup(false)} key={bank.id}><span>{bank.title.slice(0, 1)}</span><div><strong>{bank.title}</strong><small>{bank.questionCount} 道题</small></div></NavLink>)}</div>
+              <div className="group-bank-list">{groupBanks.map((bank) => <NavLink to={`/library/bank/${bank.id}`} onClick={() => setManagingGroup(false)} key={bank.id}><span>{bank.title.slice(0, 1)}</span><div><strong>{bank.title}</strong><small>{bankCountLabel(bank)}</small></div></NavLink>)}</div>
             </div>
           })}
-          {ungroupedBanks.length > 0 && <div className="library-group"><div className="group-label"><BookIcon />未编组 <b>{ungroupedBanks.length}</b></div><div className="group-bank-list">{ungroupedBanks.map((bank) => <NavLink to={`/library/bank/${bank.id}`} onClick={() => setManagingGroup(false)} key={bank.id}><span>{bank.title.slice(0, 1)}</span><div><strong>{bank.title}</strong><small>{bank.questionCount} 道题</small></div></NavLink>)}</div></div>}
+          {ungroupedBanks.length > 0 && <div className="library-group"><div className="group-label"><BookIcon />未编组 <b>{ungroupedBanks.length}</b></div><div className="group-bank-list">{ungroupedBanks.map((bank) => <NavLink to={`/library/bank/${bank.id}`} onClick={() => setManagingGroup(false)} key={bank.id}><span>{bank.title.slice(0, 1)}</span><div><strong>{bank.title}</strong><small>{bankCountLabel(bank)}</small></div></NavLink>)}</div></div>}
         </div>
       </aside>
 
@@ -142,16 +146,16 @@ export function LibraryPage() {
         ) : (
           <>
             <header className="library-target-header">
-              <div><p className="kicker">{activeGroup ? 'GROUP SEARCH' : 'QUESTION BANK'}</p><h1>{activeGroup?.name ?? activeBank?.title}</h1><p>{activeGroup ? `${activeBanks.length} 份题库 · ${activeBanks.reduce((sum, bank) => sum + bank.questionCount, 0)} 道题` : `${activeBank?.sourceFileName} · ${activeBank?.questionCount} 道题`}</p></div>
+              <div><p className="kicker">{activeGroup ? 'GROUP SEARCH' : activeBank?.contentMode === 'text' ? 'TEXT LIBRARY' : 'QUESTION BANK'}</p><h1>{activeGroup?.name ?? activeBank?.title}</h1><p>{activeGroup ? `${activeBanks.length} 份资料 · ${activeBanks.reduce((sum, bank) => sum + bank.questionCount, 0)} 条内容` : `${activeBank?.sourceFileName} · ${activeBank ? bankCountLabel(activeBank) : ''}`}</p></div>
               <div className="library-target-actions">
                 {activeBank && <button className="icon-button danger" onClick={() => removeBank(activeBank)} aria-label={`删除 ${activeBank.title}`}><TrashIcon /></button>}
-                {activeBank && <Link className="button subtle" to={`/review/${activeBank.id}`}>校对与发布</Link>}
+                {activeBank?.contentMode === 'questions' && <Link className="button subtle" to={`/review/${activeBank.id}`}>校对与发布</Link>}
                 {activeGroup && <button className="button subtle" onClick={toggleGroupManager}><SettingsIcon />管理成员</button>}
                 {activeGroup && <button className="icon-button danger" onClick={removeGroup} aria-label={`删除分组 ${activeGroup.name}`}><TrashIcon /></button>}
               </div>
             </header>
 
-            {activeBank && activeBank.warningCount > 0 && <div className="review-notice"><WarningIcon /><div><strong>这份题库有 {activeBank.warningCount} 道题需要确认</strong><p>可以先检索使用，也可以进入校对页面修正。</p></div></div>}
+            {activeBank?.contentMode === 'questions' && activeBank.warningCount > 0 && <div className="review-notice"><WarningIcon /><div><strong>这份题库有 {activeBank.warningCount} 道题需要确认</strong><p>可以先检索使用，也可以进入校对页面修正。</p></div></div>}
 
             {activeGroup && managingGroup && <section className="group-manager panel"><div><h2>选择组内题库</h2><p>勾选加入分组，取消勾选即可解除编组。题库不会被删除。</p></div><div className="group-member-options">{banks.map((bank) => <label key={bank.id}><input type="checkbox" checked={selectedBankIds.includes(bank.id)} onChange={() => toggleBank(bank.id)} /><span>{bank.title}</span><small>{bank.questionCount} 题</small></label>)}</div><div className="group-manager-actions"><button className="button subtle" onClick={() => setManagingGroup(false)}>取消</button><button className="button primary" onClick={saveMembers}>保存分组</button></div></section>}
 

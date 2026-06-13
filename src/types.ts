@@ -1,6 +1,7 @@
 export type QuestionType = 'single' | 'multiple' | 'judgment' | 'unknown'
 export type BankStatus = 'draft' | 'review' | 'published'
 export type BankVisibility = 'private' | 'public'
+export type BankContentMode = 'questions' | 'text'
 
 export interface QuestionOption {
   label: string
@@ -31,6 +32,7 @@ export interface QuestionBank {
   description: string
   status: BankStatus
   visibility: BankVisibility
+  contentMode: BankContentMode
   sourceFilePath?: string
   sourceFileName: string
   sourceFileType: string

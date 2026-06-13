@@ -7,7 +7,7 @@ export interface AuthState {
   session: Session | null
   user: User | null
   signInWithPassword: (username: string, password: string) => Promise<void>
-  signUpWithPassword: (username: string, password: string) => Promise<void>
+  signUpWithPassword: (username: string, password: string, inviteCode: string) => Promise<void>
   signOut: () => Promise<void>
 }
 

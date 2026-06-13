@@ -7,11 +7,12 @@ import { ImportPage } from './pages/ImportPage'
 import { ReviewPage } from './pages/ReviewPage'
 import { SearchPage } from './pages/SearchPage'
 import { LoginPage } from './pages/LoginPage'
+import { VisualEffects } from './components/VisualEffects'
 import './App.css'
 
 function App() {
   return (
-    <AuthProvider>
+    <><VisualEffects /><AuthProvider>
       <HashRouter>
         <Routes>
           <Route path="login" element={<LoginPage />} />
@@ -28,7 +29,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </HashRouter>
-    </AuthProvider>
+    </AuthProvider></>
   )
 }
 

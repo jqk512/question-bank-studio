@@ -8,7 +8,7 @@ import type {
 const QUESTION_START = /^\s*(?:第\s*)?(\d{1,5})\s*(?:题|[.．、:：)）])\s*/gm
 const ANSWER_LINE = /^\s*(?:正确)?答案\s*(?:为)?\s*[:：]?\s*([^\n]+)$/gim
 const EXPLANATION_LINE = /^\s*(?:答案)?解析\s*[:：]\s*([\s\S]*)$/im
-const OPTION_START = /(?:^|\n|[ \t])([A-H])(?:[.．:：)）]\s+|、\s*)/gim
+const OPTION_START = /(?:^|\n|[ \t])([A-H])(?:[.．:：)）]\s+|、\s*|[.．:：)）](?=[\u3400-\u9fff\d]))/gim
 
 function normalizeSource(source: string) {
   return source
@@ -69,6 +69,7 @@ function parseBlock(sequence: number, block: string): ParsedQuestion {
     const end = optionMatches[index + 1]?.index ?? content.length
     options.push({ label: match[1].toUpperCase(), text: cleanText(content.slice(start, end)) })
   }
+  options.sort((a, b) => a.label.localeCompare(b.label))
 
   const stemEnd = optionMatches[0]?.index ?? content.length
   const stem = cleanText(content.slice(0, stemEnd))

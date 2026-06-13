@@ -6,6 +6,7 @@ import { parseQuestionText } from '../lib/question-parser'
 import { replaceQuestions, saveBank, uploadSourceFile } from '../lib/repository'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { createSlug, uniqueId } from '../lib/slug'
+import { createTextEntries } from '../lib/text-document'
 import type { ParseResult, Question, QuestionBank } from '../types'
 
 export function ImportPage() {
@@ -17,6 +18,7 @@ export function ImportPage() {
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [result, setResult] = useState<ParseResult | null>(null)
+  const [contentMode, setContentMode] = useState<QuestionBank['contentMode']>('questions')
   const [processing, setProcessing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -40,8 +42,16 @@ export function ImportPage() {
     try {
       const text = await extractFileText(nextFile)
       const parsed = parseQuestionText(text)
-      setResult(parsed)
-      if (!parsed.questions.length) setError(parsed.warnings[0] ?? '没有识别到题目。')
+      const hasStructuredQuestions = parsed.questions.some((question) => question.type !== 'unknown')
+      if (hasStructuredQuestions) {
+        setContentMode('questions')
+        setResult(parsed)
+      } else {
+        const textEntries = createTextEntries(text)
+        setContentMode('text')
+        setResult({ questions: textEntries, sourceText: text, warnings: textEntries.length ? ['未识别到选择题或判断题，已切换为文本资料模式。'] : parsed.warnings })
+        if (!textEntries.length) setError('文件中没有提取到可检索文字。')
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '文件解析失败。')
     } finally {
@@ -63,9 +73,14 @@ export function ImportPage() {
   function processPastedText() {
     importIdRef.current = uniqueId('bank')
     const parsed = parseQuestionText(pastedText)
-    setResult(parsed)
+    const hasStructuredQuestions = parsed.questions.some((question) => question.type !== 'unknown')
+    const nextResult = hasStructuredQuestions
+      ? parsed
+      : { questions: createTextEntries(pastedText), sourceText: pastedText, warnings: ['未识别到选择题或判断题，已切换为文本资料模式。'] }
+    setContentMode(hasStructuredQuestions ? 'questions' : 'text')
+    setResult(nextResult)
     setFile(null)
-    setError(parsed.questions.length ? '' : parsed.warnings[0] ?? '没有识别到题目。')
+    setError(nextResult.questions.length ? '' : parsed.warnings[0] ?? '没有提取到可检索文字。')
     if (!title) {
       setTitle('未命名题库')
       setSlug(createSlug('未命名题库'))
@@ -87,6 +102,7 @@ export function ImportPage() {
       description: '',
       status: 'review',
       visibility: 'private',
+      contentMode,
       sourceFileName: file?.name ?? '手动粘贴.txt',
       sourceFileType: file ? getSupportedFileType(file) ?? 'unknown' : 'text',
       questionCount: result.questions.length,
@@ -120,7 +136,7 @@ export function ImportPage() {
   return (
     <>
       <section className="page-heading narrow-heading">
-        <div><p className="kicker">IMPORT PIPELINE</p><h1>导入一份新题库</h1><p>文件将在浏览器本地提取和拆分，提交前可以检查识别结果。</p></div>
+        <div><p className="kicker">IMPORT PIPELINE</p><h1>导入一份新题库</h1><p>文件将在浏览器本地提取和拆分，扫描版 PDF 会先被识别并提示 OCR 处理。</p></div>
       </section>
 
       <div className="import-layout">
@@ -130,7 +146,7 @@ export function ImportPage() {
             <input ref={inputRef} type="file" accept=".txt,.md,.docx,.pdf" onChange={onFileChange} hidden />
             <span className="drop-icon">{file ? <CheckIcon /> : <UploadIcon />}</span>
             <h2>{file ? file.name : '拖入文件，或点击选择'}</h2>
-            <p>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'TXT · Markdown · DOCX · 文字型 PDF'}</p>
+            <p>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'TXT · Markdown · DOCX · PDF（扫描件检测）'}</p>
             <button type="button" className="button subtle">{file ? '重新选择' : '选择文件'}</button>
           </div>
           <div className="privacy-note"><strong>{isSupabaseConfigured ? '私有云端' : '本地优先'}</strong><span>{isSupabaseConfigured ? '源文件会上传到仅你可访问的私有存储空间。' : '当前版本不会把源文件上传到服务器。'}</span></div>
@@ -148,19 +164,19 @@ export function ImportPage() {
           ) : result?.questions.length ? (
             <>
               <div className="parse-summary">
-                <div><span>识别题目</span><strong>{result.questions.length}</strong></div>
-                <div><span>可直接使用</span><strong>{result.questions.length - warningCount}</strong></div>
-                <div className={warningCount ? 'warn' : ''}><span>需要检查</span><strong>{warningCount}</strong></div>
+                <div><span>{contentMode === 'text' ? '文本片段' : '识别题目'}</span><strong>{result.questions.length}</strong></div>
+                <div><span>{contentMode === 'text' ? '检索模式' : '可直接使用'}</span><strong>{contentMode === 'text' ? '文本' : result.questions.length - warningCount}</strong></div>
+                <div className={warningCount ? 'warn' : ''}><span>需要检查</span><strong>{contentMode === 'text' ? 0 : warningCount}</strong></div>
               </div>
               {result.warnings.length > 0 && <div className="warning-strip"><WarningIcon />{result.warnings.join('；')}</div>}
               <label className="field-label">题库名称<input value={title} onChange={(event) => { setTitle(event.target.value); setSlug(createSlug(event.target.value)) }} /></label>
               <label className="field-label">链接标识<input value={slug} onChange={(event) => setSlug(event.target.value)} /><small>发布后用于生成独立检索链接</small></label>
               <div className="sample-preview">
-                <span>识别预览</span>
-                <strong>{result.questions[0].sequence}. {result.questions[0].stem}</strong>
-                <p>{result.questions[0].options.slice(0, 2).map((option) => `${option.label}. ${option.text}`).join('　')}</p>
+                <span>{contentMode === 'text' ? '文本预览' : '识别预览'}</span>
+                <strong>{contentMode === 'text' ? result.questions[0].stem : `${result.questions[0].sequence}. ${result.questions[0].stem}`}</strong>
+                {contentMode === 'questions' && <p>{result.questions[0].options.slice(0, 2).map((option) => `${option.label}. ${option.text}`).join('　')}</p>}
               </div>
-              <button className="button primary wide" type="button" onClick={saveImport} disabled={saving}>{saving ? '正在保存…' : '保存并进入校对'}<ArrowIcon /></button>
+              <button className="button primary wide" type="button" onClick={saveImport} disabled={saving}>{saving ? '正在保存…' : contentMode === 'text' ? '保存并进入检索' : '保存并进入校对'}<ArrowIcon /></button>
             </>
           ) : (
             <div className="placeholder-state"><span>02</span><h2>等待文件解析</h2><p>选择文件后，这里会显示识别数量、异常和题目预览。</p></div>

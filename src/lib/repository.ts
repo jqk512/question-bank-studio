@@ -34,6 +34,7 @@ interface BankRow {
   description: string
   status: QuestionBank['status']
   visibility: QuestionBank['visibility']
+  content_mode: QuestionBank['contentMode']
   source_file_path: string | null
   source_file_name: string
   source_file_type: string
@@ -111,6 +112,7 @@ function mapBank(row: BankRow): QuestionBank {
     description: row.description,
     status: row.status,
     visibility: row.visibility,
+    contentMode: row.content_mode ?? 'questions',
     sourceFilePath: row.source_file_path ?? undefined,
     sourceFileName: row.source_file_name,
     sourceFileType: row.source_file_type,
@@ -131,6 +133,7 @@ function bankPayload(bank: QuestionBank, ownerId: string) {
     description: bank.description,
     status: bank.status,
     visibility: bank.visibility,
+    content_mode: bank.contentMode,
     source_file_path: bank.sourceFilePath ?? null,
     source_file_name: bank.sourceFileName,
     source_file_type: bank.sourceFileType,
