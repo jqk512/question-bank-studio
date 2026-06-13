@@ -23,7 +23,7 @@ export function AppShell() {
         </NavLink>
 
         <nav className="main-nav" aria-label="主导航">
-          <NavLink to="/" end><GridIcon />题库管理</NavLink>
+          <NavLink to="/" end><GridIcon />题库工作区</NavLink>
           <NavLink to="/import"><UploadIcon />导入题库</NavLink>
         </nav>
 

@@ -41,6 +41,21 @@ export interface QuestionBank {
   publishedAt?: string
 }
 
+export interface BankGroup {
+  id: string
+  ownerId?: string
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BankGroupMembership {
+  id: string
+  groupId: string
+  bankId: string
+  createdAt: string
+}
+
 export interface ParsedQuestion {
   sequence: number
   type: QuestionType

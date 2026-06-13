@@ -48,6 +48,21 @@ create table public.questions (
   unique (bank_id, sequence)
 );
 
+create table public.bank_groups (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 80),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.bank_group_memberships (
+  group_id uuid not null references public.bank_groups(id) on delete cascade,
+  bank_id uuid not null references public.question_banks(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (group_id, bank_id)
+);
+
 create table public.import_jobs (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
@@ -65,10 +80,14 @@ create table public.import_jobs (
 create index question_banks_owner_updated_idx on public.question_banks (owner_id, updated_at desc);
 create index question_banks_public_idx on public.question_banks (visibility, status) where visibility = 'public' and status = 'published';
 create index questions_bank_sequence_idx on public.questions (bank_id, sequence);
+create unique index bank_groups_owner_name_idx on public.bank_groups (owner_id, lower(name));
+create index bank_group_memberships_bank_idx on public.bank_group_memberships (bank_id);
 create index import_jobs_owner_created_idx on public.import_jobs (owner_id, created_at desc);
 
 alter table public.question_banks enable row level security;
 alter table public.questions enable row level security;
+alter table public.bank_groups enable row level security;
+alter table public.bank_group_memberships enable row level security;
 alter table public.import_jobs enable row level security;
 
 create policy "Owners can read their banks"
@@ -138,11 +157,48 @@ on public.import_jobs for all to authenticated
 using ((select auth.uid()) = owner_id)
 with check ((select auth.uid()) = owner_id);
 
+create policy "Owners manage their bank groups"
+on public.bank_groups for all to authenticated
+using ((select auth.uid()) = owner_id)
+with check ((select auth.uid()) = owner_id);
+
+create policy "Owners read their bank group memberships"
+on public.bank_group_memberships for select to authenticated
+using (exists (
+  select 1 from public.bank_groups bank_group
+  where bank_group.id = bank_group_memberships.group_id
+    and bank_group.owner_id = (select auth.uid())
+));
+
+create policy "Owners create their bank group memberships"
+on public.bank_group_memberships for insert to authenticated
+with check (
+  exists (
+    select 1 from public.bank_groups bank_group
+    where bank_group.id = bank_group_memberships.group_id
+      and bank_group.owner_id = (select auth.uid())
+  )
+  and exists (
+    select 1 from public.question_banks bank
+    where bank.id = bank_group_memberships.bank_id
+      and bank.owner_id = (select auth.uid())
+  )
+);
+
+create policy "Owners delete their bank group memberships"
+on public.bank_group_memberships for delete to authenticated
+using (exists (
+  select 1 from public.bank_groups bank_group
+  where bank_group.id = bank_group_memberships.group_id
+    and bank_group.owner_id = (select auth.uid())
+));
+
 -- Supabase changed new-project Data API defaults in 2026. Keep these grants
 -- explicit; RLS still determines which rows each role may access.
 grant usage on schema public to anon, authenticated;
 grant select on public.question_banks, public.questions to anon;
 grant select, insert, update, delete on public.question_banks, public.questions, public.import_jobs to authenticated;
+grant select, insert, update, delete on public.bank_groups, public.bank_group_memberships to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (

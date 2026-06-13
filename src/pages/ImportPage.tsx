@@ -108,7 +108,7 @@ export function ImportPage() {
         bank = await saveBank(bank)
       }
       await replaceQuestions(bankId, questions)
-      navigate(`/review/${bankId}`)
+      navigate(`/library/bank/${bankId}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '保存题库失败。')
       setSaving(false)

@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { Question, QuestionBank } from '../types'
+import type { BankGroup, BankGroupMembership, Question, QuestionBank } from '../types'
 import { createUniqueSlug } from './slug'
 import { isSupabaseConfigured, requireSupabase } from './supabase'
 
@@ -13,6 +13,16 @@ interface QuestionStudioSchema extends DBSchema {
     key: string
     value: Question
     indexes: { 'by-bank': string; 'by-bank-sequence': [string, number] }
+  }
+  groups: {
+    key: string
+    value: BankGroup
+    indexes: { 'by-updated': string }
+  }
+  groupMemberships: {
+    key: string
+    value: BankGroupMembership
+    indexes: { 'by-group': string; 'by-bank': string }
   }
 }
 
@@ -50,19 +60,42 @@ interface QuestionRow {
   warnings: string[]
 }
 
+interface BankGroupRow {
+  id: string
+  owner_id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+interface BankGroupMembershipRow {
+  group_id: string
+  bank_id: string
+  created_at: string
+}
+
 let databasePromise: Promise<IDBPDatabase<QuestionStudioSchema>> | null = null
 
 function database() {
   if (!databasePromise) {
-    databasePromise = openDB<QuestionStudioSchema>('question-bank-studio', 1, {
-      upgrade(db) {
-        const bankStore = db.createObjectStore('banks', { keyPath: 'id' })
-        bankStore.createIndex('by-slug', 'slug', { unique: true })
-        bankStore.createIndex('by-updated', 'updatedAt')
+    databasePromise = openDB<QuestionStudioSchema>('question-bank-studio', 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const bankStore = db.createObjectStore('banks', { keyPath: 'id' })
+          bankStore.createIndex('by-slug', 'slug', { unique: true })
+          bankStore.createIndex('by-updated', 'updatedAt')
 
-        const questionStore = db.createObjectStore('questions', { keyPath: 'id' })
-        questionStore.createIndex('by-bank', 'bankId')
-        questionStore.createIndex('by-bank-sequence', ['bankId', 'sequence'], { unique: true })
+          const questionStore = db.createObjectStore('questions', { keyPath: 'id' })
+          questionStore.createIndex('by-bank', 'bankId')
+          questionStore.createIndex('by-bank-sequence', ['bankId', 'sequence'], { unique: true })
+        }
+        if (oldVersion < 2) {
+          const groupStore = db.createObjectStore('groups', { keyPath: 'id' })
+          groupStore.createIndex('by-updated', 'updatedAt')
+          const membershipStore = db.createObjectStore('groupMemberships', { keyPath: 'id' })
+          membershipStore.createIndex('by-group', 'groupId')
+          membershipStore.createIndex('by-bank', 'bankId')
+        }
       },
     })
   }
@@ -146,6 +179,25 @@ function questionPayload(question: Question) {
   }
 }
 
+function mapGroup(row: BankGroupRow): BankGroup {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    name: row.name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function mapMembership(row: BankGroupMembershipRow): BankGroupMembership {
+  return {
+    id: `${row.group_id}:${row.bank_id}`,
+    groupId: row.group_id,
+    bankId: row.bank_id,
+    createdAt: row.created_at,
+  }
+}
+
 async function currentUserId() {
   const { data, error } = await requireSupabase().auth.getUser()
   if (error || !data.user) throw error ?? new Error('请先登录。')
@@ -221,11 +273,13 @@ export async function saveBank(bank: QuestionBank) {
 export async function deleteBank(id: string) {
   if (!isSupabaseConfigured) {
     const db = await database()
-    const tx = db.transaction(['banks', 'questions'], 'readwrite')
+    const tx = db.transaction(['banks', 'questions', 'groupMemberships'], 'readwrite')
     const questionIds = await tx.objectStore('questions').index('by-bank').getAllKeys(id)
+    const membershipIds = await tx.objectStore('groupMemberships').index('by-bank').getAllKeys(id)
     await Promise.all([
       tx.objectStore('banks').delete(id),
       ...questionIds.map((questionId) => tx.objectStore('questions').delete(questionId)),
+      ...membershipIds.map((membershipId) => tx.objectStore('groupMemberships').delete(membershipId)),
     ])
     await tx.done
     return
@@ -248,6 +302,99 @@ export async function listQuestions(bankId: string) {
   const { data, error } = await requireSupabase().from('questions').select('*').eq('bank_id', bankId).order('sequence')
   throwOnError(error)
   return ((data ?? []) as QuestionRow[]).map(mapQuestion)
+}
+
+export async function listQuestionsForBanks(bankIds: string[]) {
+  const uniqueBankIds = [...new Set(bankIds)]
+  const questions = await Promise.all(uniqueBankIds.map(listQuestions))
+  return questions.flat()
+}
+
+export async function listGroups() {
+  if (!isSupabaseConfigured) {
+    const groups = await (await database()).getAll('groups')
+    return groups.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }
+  const { data, error } = await requireSupabase().from('bank_groups').select('*').order('updated_at', { ascending: false })
+  throwOnError(error)
+  return ((data ?? []) as BankGroupRow[]).map(mapGroup)
+}
+
+export async function saveGroup(group: BankGroup) {
+  if (!isSupabaseConfigured) {
+    await (await database()).put('groups', group)
+    return group
+  }
+  const ownerId = await currentUserId()
+  const { error } = await requireSupabase().from('bank_groups').upsert({
+    id: group.id,
+    owner_id: ownerId,
+    name: group.name,
+    created_at: group.createdAt,
+    updated_at: group.updatedAt,
+  }, { onConflict: 'id' })
+  throwOnError(error)
+  return { ...group, ownerId }
+}
+
+export async function deleteGroup(id: string) {
+  if (!isSupabaseConfigured) {
+    const db = await database()
+    const tx = db.transaction(['groups', 'groupMemberships'], 'readwrite')
+    const membershipIds = await tx.objectStore('groupMemberships').index('by-group').getAllKeys(id)
+    await Promise.all([
+      tx.objectStore('groups').delete(id),
+      ...membershipIds.map((membershipId) => tx.objectStore('groupMemberships').delete(membershipId)),
+    ])
+    await tx.done
+    return
+  }
+  const { error } = await requireSupabase().from('bank_groups').delete().eq('id', id)
+  throwOnError(error)
+}
+
+export async function listGroupMemberships() {
+  if (!isSupabaseConfigured) return (await database()).getAll('groupMemberships')
+  const { data, error } = await requireSupabase().from('bank_group_memberships').select('*')
+  throwOnError(error)
+  return ((data ?? []) as BankGroupMembershipRow[]).map(mapMembership)
+}
+
+export async function setGroupBanks(groupId: string, bankIds: string[]) {
+  const uniqueBankIds = [...new Set(bankIds)]
+  if (!isSupabaseConfigured) {
+    const db = await database()
+    const tx = db.transaction('groupMemberships', 'readwrite')
+    const existingIds = await tx.store.index('by-group').getAllKeys(groupId)
+    const createdAt = new Date().toISOString()
+    await Promise.all([
+      ...existingIds.map((id) => tx.store.delete(id)),
+      ...uniqueBankIds.map((bankId) => tx.store.put({
+        id: `${groupId}:${bankId}`,
+        groupId,
+        bankId,
+        createdAt,
+      })),
+    ])
+    await tx.done
+    return
+  }
+  const client = requireSupabase()
+  const existing = (await listGroupMemberships()).filter((membership) => membership.groupId === groupId)
+  const existingBankIds = new Set(existing.map((membership) => membership.bankId))
+  const nextBankIds = new Set(uniqueBankIds)
+  const removedBankIds = existing.filter((membership) => !nextBankIds.has(membership.bankId)).map((membership) => membership.bankId)
+  const addedBankIds = uniqueBankIds.filter((bankId) => !existingBankIds.has(bankId))
+  if (removedBankIds.length) {
+    const { error } = await client.from('bank_group_memberships').delete().eq('group_id', groupId).in('bank_id', removedBankIds)
+    throwOnError(error)
+  }
+  if (addedBankIds.length) {
+    const { error } = await client.from('bank_group_memberships').insert(
+      addedBankIds.map((bankId) => ({ group_id: groupId, bank_id: bankId })),
+    )
+    throwOnError(error)
+  }
 }
 
 export async function replaceQuestions(bankId: string, questions: Question[]) {
