@@ -45,7 +45,7 @@ function inferType(options: QuestionOption[], answer: string[]): QuestionType {
   return 'unknown'
 }
 
-function parseBlock(sequence: number, block: string): ParsedQuestion {
+function parseBlock(sequence: number, displayNumber: number, block: string): ParsedQuestion {
   const warnings: string[] = []
   const answerMatches = [...block.matchAll(ANSWER_LINE)]
   const answerMatch = answerMatches.at(-1)
@@ -89,6 +89,7 @@ function parseBlock(sequence: number, block: string): ParsedQuestion {
 
   return {
     sequence,
+    displayNumber,
     type: inferType(options, answer),
     stem,
     options,
@@ -115,16 +116,16 @@ export function parseQuestionText(input: string): ParseResult {
   }
 
   const questions = starts.map((start, index) => {
-    const sequence = Number(start[1])
+    const displayNumber = Number(start[1])
     const blockStart = (start.index ?? 0) + start[0].length
     const blockEnd = starts[index + 1]?.index ?? sourceText.length
-    return parseBlock(sequence, sourceText.slice(blockStart, blockEnd))
+    return parseBlock(index + 1, displayNumber, sourceText.slice(blockStart, blockEnd))
   })
 
-  const sequences = questions.map((question) => question.sequence)
-  if (new Set(sequences).size !== sequences.length) warnings.push('存在重复题号')
-  for (let index = 1; index < sequences.length; index += 1) {
-    if (sequences[index] !== sequences[index - 1] + 1) {
+  const displayNumbers = questions.map((question) => question.displayNumber)
+  if (new Set(displayNumbers).size !== displayNumbers.length) warnings.push('存在重复题号')
+  for (let index = 1; index < displayNumbers.length; index += 1) {
+    if (displayNumbers[index] !== displayNumbers[index - 1] + 1) {
       warnings.push('题号不连续，请检查是否漏题或拆分错误')
       break
     }
