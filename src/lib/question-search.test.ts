@@ -4,12 +4,12 @@ import { countQuestionTypes, filterQuestions } from './question-search'
 
 const questions: Question[] = [
   {
-    id: 'q1', bankId: 'b1', sequence: 1, type: 'single', stem: '神经网络的基本单元是什么',
+    id: 'q1', bankId: 'b1', sequence: 1, displayNumber: 1, type: 'single', stem: '神经网络的基本单元是什么',
     options: [{ label: 'A', text: '神经元' }, { label: 'B', text: '数据库' }], answer: ['A'],
     answerText: ['神经元'], explanation: '', rawText: '', confidence: 1, warnings: [],
   },
   {
-    id: 'q2', bankId: 'b2', sequence: 1, type: 'multiple', stem: '机器学习包含哪些方法',
+    id: 'q2', bankId: 'b2', sequence: 1, displayNumber: 1, type: 'multiple', stem: '机器学习包含哪些方法',
     options: [{ label: 'A', text: '监督学习' }, { label: 'B', text: '强化学习' }], answer: ['A', 'B'],
     answerText: ['监督学习', '强化学习'], explanation: '两者都属于机器学习。', rawText: '', confidence: 1, warnings: [],
   },
