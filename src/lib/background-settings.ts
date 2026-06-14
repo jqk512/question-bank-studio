@@ -20,12 +20,12 @@ export function loadSettings(): BackgroundSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
-  } catch {}
+  } catch { /* ignore */ }
   return { ...DEFAULT_SETTINGS }
 }
 
 export function saveSettings(s: BackgroundSettings) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* ignore */ }
 }
 
 export interface ColorPreset {
