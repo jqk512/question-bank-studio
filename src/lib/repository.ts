@@ -433,12 +433,17 @@ export async function saveQuestion(question: Question) {
   return question
 }
 
+export function sourceObjectPath(userId: string, bankId: string, fileName: string) {
+  const extension = fileName.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin'
+  return `${userId}/${bankId}/source.${extension}`
+}
+
 export async function uploadSourceFile(file: File, bankId: string) {
   if (!isSupabaseConfigured) return undefined
   const userId = await currentUserId()
-  const safeName = file.name.replace(/[\\/]+/g, '-').replace(/\s+/g, '-').slice(-180)
-  const path = `${userId}/${bankId}/${safeName}`
-  const extension = file.name.split('.').pop()?.toLowerCase()
+  // Storage object keys stay ASCII-only; the original Unicode name is kept on the bank row.
+  const path = sourceObjectPath(userId, bankId, file.name)
+  const extension = path.split('.').pop()
   const fallbackMime = extension === 'pdf'
     ? 'application/pdf'
     : extension === 'docx'

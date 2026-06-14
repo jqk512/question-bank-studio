@@ -8,28 +8,33 @@ import { ReviewPage } from './pages/ReviewPage'
 import { SearchPage } from './pages/SearchPage'
 import { LoginPage } from './pages/LoginPage'
 import { VisualEffects } from './components/VisualEffects'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 import './App.css'
 
 function App() {
   return (
-    <><VisualEffects /><AuthProvider>
-      <HashRouter>
-        <Routes>
-          <Route path="login" element={<LoginPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppShell />}>
-              <Route index element={<LibraryPage />} />
-              <Route path="library/bank/:bankId" element={<LibraryPage />} />
-              <Route path="library/group/:groupId" element={<LibraryPage />} />
-              <Route path="import" element={<ImportPage />} />
-              <Route path="review/:bankId" element={<ReviewPage />} />
+    <AppErrorBoundary>
+      <VisualEffects />
+      <AuthProvider>
+        <HashRouter>
+          <Routes>
+            <Route path="login" element={<LoginPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppShell />}>
+                <Route index element={<LibraryPage />} />
+                <Route path="library/all" element={<LibraryPage />} />
+                <Route path="library/bank/:bankId" element={<LibraryPage />} />
+                <Route path="library/group/:groupId" element={<LibraryPage />} />
+                <Route path="import" element={<ImportPage />} />
+                <Route path="review/:bankId" element={<ReviewPage />} />
+              </Route>
             </Route>
-          </Route>
-          <Route path="bank/:slug" element={<SearchPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </HashRouter>
-    </AuthProvider></>
+            <Route path="bank/:slug" element={<SearchPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </HashRouter>
+      </AuthProvider>
+    </AppErrorBoundary>
   )
 }
 

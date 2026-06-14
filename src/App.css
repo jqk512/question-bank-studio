@@ -418,3 +418,24 @@
 @media (prefers-reduced-motion: reduce) {
   .emoji-burst { display: none; }
 }
+
+/* Search, document mode, dialogs, and library utilities */
+.workspace-search kbd { padding: 5px 8px; color: rgba(249,251,255,.72); background: rgba(5,12,54,.28); border: 1px solid rgba(255,255,255,.18); border-radius: 7px; font: 700 9px ui-monospace, monospace; white-space: nowrap; }
+.result-question mark { padding: 0 .12em; color: #07103f; background: #fff238; border-radius: 3px; box-shadow: 0 0 14px rgba(255,242,56,.35); }
+.global-search-link { margin-bottom: 10px; padding: 10px; display: grid; grid-template-columns: 18px minmax(0,1fr) auto; align-items: center; gap: 8px; color: rgba(249,251,255,.82); background: rgba(91,238,255,.08); border: 1px solid rgba(91,238,255,.2); border-radius: 10px; font-size: 10px; font-weight: 800; }
+.global-search-link:hover, .global-search-link.active { color: #07103f; background: linear-gradient(120deg, rgba(91,238,255,.92), rgba(255,242,56,.88)); }
+.global-search-link svg { width: 15px; }
+.global-search-link b { font-size: 9px; }
+.load-more { justify-self: center; margin: 8px 0 28px; }
+.format-example { margin-top: 11px; color: rgba(249,251,255,.76); }
+.format-example summary { cursor: pointer; color: #5beeff; font-size: 10px; font-weight: 800; }
+.format-example pre { padding: 13px; overflow: auto; white-space: pre-wrap; color: #fff; background: rgba(5,12,54,.34); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; font: 10px/1.7 ui-monospace, monospace; }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(2,5,30,.65); backdrop-filter: blur(10px); }
+.confirm-dialog { width: min(430px, 100%); padding: 25px; color: #fff; background: rgba(8,18,68,.88); border-color: rgba(255,255,255,.24); }
+.confirm-dialog h2 { margin: 8px 0 10px; font-size: 23px; }
+.confirm-dialog > p:not(.kicker) { color: rgba(249,251,255,.72); line-height: 1.7; }
+.confirm-dialog-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: 8px; }
+.danger-button { color: #fff; background: rgba(224,56,70,.6); border: 1px solid rgba(255,190,190,.35); }
+.fatal-error { width: min(620px, calc(100% - 40px)); margin: 12vh auto; padding: 34px; color: #fff; background: rgba(8,18,68,.82); }
+.fatal-error h1 { margin: 8px 0; }
+.fatal-error > p:not(.kicker) { color: rgba(249,251,255,.72); line-height: 1.7; }

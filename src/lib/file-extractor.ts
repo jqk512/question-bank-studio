@@ -9,6 +9,12 @@ export interface PdfTextAssessment {
   likelyScanned: boolean
 }
 
+export interface ExtractionProgress {
+  current: number
+  total: number
+  phase: 'extracting'
+}
+
 export function getSupportedFileType(file: File): SupportedFileType | null {
   const extension = file.name.split('.').pop()?.toLocaleLowerCase()
   if (extension === 'txt' || extension === 'md') return 'text'
@@ -29,7 +35,7 @@ export function assessPdfTextExtraction(pages: string[]): PdfTextAssessment {
   return { pageCount, textPageCount, characterCount, likelyScanned }
 }
 
-async function extractPdf(file: File) {
+async function extractPdf(file: File, onProgress?: (progress: ExtractionProgress) => void) {
   const pdfjs = await import('pdfjs-dist')
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -46,6 +52,7 @@ async function extractPdf(file: File) {
     if (/^\d{1,4}$/.test(lines[0]?.trim())) lines.shift()
     if (/^\d{1,4}$/.test(lines.at(-1)?.trim() ?? '')) lines.pop()
     pages.push(lines.join('\n'))
+    onProgress?.({ current: pageNumber, total: document.numPages, phase: 'extracting' })
   }
 
   const assessment = assessPdfTextExtraction(pages)
@@ -62,10 +69,10 @@ async function extractDocx(file: File) {
   return result.value
 }
 
-export async function extractFileText(file: File) {
+export async function extractFileText(file: File, onProgress?: (progress: ExtractionProgress) => void) {
   const type = getSupportedFileType(file)
   if (!type) throw new Error('暂不支持该文件格式，请上传 TXT、Markdown、DOCX 或 PDF。')
   if (type === 'text') return file.text()
-  if (type === 'pdf') return extractPdf(file)
+  if (type === 'pdf') return extractPdf(file, onProgress)
   return extractDocx(file)
 }

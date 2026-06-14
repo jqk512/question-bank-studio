@@ -1,9 +1,9 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowIcon, CheckIcon, UploadIcon, WarningIcon } from '../components/Icons'
 import { extractFileText, getSupportedFileType } from '../lib/file-extractor'
 import { parseQuestionText } from '../lib/question-parser'
-import { replaceQuestions, saveBank, uploadSourceFile } from '../lib/repository'
+import { getBank, replaceQuestions, saveBank, uploadSourceFile } from '../lib/repository'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { createSlug, uniqueId } from '../lib/slug'
 import { createTextEntries } from '../lib/text-document'
@@ -13,6 +13,9 @@ export function ImportPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const importIdRef = useRef<string | null>(null)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const replaceBankId = searchParams.get('replace')
+  const [existingBank, setExistingBank] = useState<QuestionBank | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [pastedText, setPastedText] = useState('')
   const [title, setTitle] = useState('')
@@ -20,8 +23,20 @@ export function ImportPage() {
   const [result, setResult] = useState<ParseResult | null>(null)
   const [contentMode, setContentMode] = useState<QuestionBank['contentMode']>('questions')
   const [processing, setProcessing] = useState(false)
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!replaceBankId) return
+    getBank(replaceBankId).then((bank) => {
+      if (!bank) throw new Error('找不到需要更新的题库。')
+      setExistingBank(bank)
+      importIdRef.current = bank.id
+      setTitle(bank.title)
+      setSlug(bank.slug)
+    }).catch((reason) => setError(reason instanceof Error ? reason.message : '读取原题库失败。'))
+  }, [replaceBankId])
 
   async function processFile(nextFile: File) {
     const supportedType = getSupportedFileType(nextFile)
@@ -31,16 +46,17 @@ export function ImportPage() {
     }
 
     setFile(nextFile)
-    importIdRef.current = uniqueId('bank')
+    importIdRef.current = existingBank?.id ?? uniqueId('bank')
     setProcessing(true)
+    setProgress(null)
     setError('')
     setResult(null)
     const suggestedTitle = nextFile.name.replace(/\.[^.]+$/, '')
-    setTitle(suggestedTitle)
-    setSlug(createSlug(suggestedTitle))
+    setTitle(existingBank?.title ?? suggestedTitle)
+    setSlug(existingBank?.slug ?? createSlug(suggestedTitle))
 
     try {
-      const text = await extractFileText(nextFile)
+      const text = await extractFileText(nextFile, ({ current, total }) => setProgress({ current, total }))
       const parsed = parseQuestionText(text)
       const hasStructuredQuestions = parsed.questions.some((question) => question.type !== 'unknown')
       if (hasStructuredQuestions) {
@@ -56,6 +72,7 @@ export function ImportPage() {
       setError(reason instanceof Error ? reason.message : '文件解析失败。')
     } finally {
       setProcessing(false)
+      setProgress(null)
     }
   }
 
@@ -71,7 +88,7 @@ export function ImportPage() {
   }
 
   function processPastedText() {
-    importIdRef.current = uniqueId('bank')
+    importIdRef.current = existingBank?.id ?? uniqueId('bank')
     const parsed = parseQuestionText(pastedText)
     const hasStructuredQuestions = parsed.questions.some((question) => question.type !== 'unknown')
     const nextResult = hasStructuredQuestions
@@ -99,15 +116,15 @@ export function ImportPage() {
       id: bankId,
       title: title.trim(),
       slug: createSlug(slug),
-      description: '',
-      status: 'review',
-      visibility: 'private',
+      description: existingBank?.description ?? '',
+      status: existingBank?.status ?? 'review',
+      visibility: existingBank?.visibility ?? 'private',
       contentMode,
       sourceFileName: file?.name ?? '手动粘贴.txt',
       sourceFileType: file ? getSupportedFileType(file) ?? 'unknown' : 'text',
       questionCount: result.questions.length,
       warningCount,
-      createdAt: now,
+      createdAt: existingBank?.createdAt ?? now,
       updatedAt: now,
     }
     const questions: Question[] = result.questions.map((question) => ({
@@ -119,12 +136,19 @@ export function ImportPage() {
     try {
       bank = await saveBank(bank)
       setSlug(bank.slug)
-      if (file) {
-        bank.sourceFilePath = await uploadSourceFile(file, bankId)
-        bank = await saveBank(bank)
-      }
       await replaceQuestions(bankId, questions)
-      navigate(`/library/bank/${bankId}`)
+      let sourceUploadWarning = ''
+      if (file) {
+        try {
+          bank.sourceFilePath = await uploadSourceFile(file, bankId)
+          bank = await saveBank(bank)
+        } catch (reason) {
+          sourceUploadWarning = reason instanceof Error ? reason.message : '源文件备份失败。'
+        }
+      }
+      navigate(`/library/bank/${bankId}`, {
+        state: sourceUploadWarning ? { notice: `文本内容已保存并可检索，但源文件云端备份失败：${sourceUploadWarning}` } : undefined,
+      })
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '保存题库失败。')
       setSaving(false)
@@ -136,7 +160,7 @@ export function ImportPage() {
   return (
     <>
       <section className="page-heading narrow-heading">
-        <div><p className="kicker">IMPORT PIPELINE</p><h1>导入一份新题库</h1><p>文件将在浏览器本地提取和拆分，扫描版 PDF 会先被识别并提示 OCR 处理。</p></div>
+        <div><p className="kicker">IMPORT PIPELINE</p><h1>{existingBank ? `更新“${existingBank.title}”` : '导入一份新题库'}</h1><p>{existingBank ? '新内容会覆盖这份题库，原有分组关系和发布链接保持不变。' : '文件将在浏览器本地提取和拆分，扫描版 PDF 会先被识别并提示 OCR 处理。'}</p></div>
       </section>
 
       <div className="import-layout">
@@ -155,12 +179,16 @@ export function ImportPage() {
             <textarea value={pastedText} onChange={(event) => setPastedText(event.target.value)} placeholder={'1. 示例题目\nA. 选项一\nB. 选项二\n答案：A'} />
             <button type="button" className="button dark" onClick={processPastedText} disabled={!pastedText.trim()}>解析粘贴内容</button>
           </details>
+          <details className="format-example">
+            <summary>查看支持的题库格式示例</summary>
+            <pre>{'1. 下列哪项正确？\nA. 选项一\nB. 选项二\n答案：A\n\n普通文档无需套用格式，会自动进入文本检索模式。'}</pre>
+          </details>
         </section>
 
         <section className="panel import-panel">
           <div className="step-label"><span>02</span>确认解析结果</div>
           {processing ? (
-            <div className="processing-state"><i /><h2>正在提取和拆分题目</h2><p>较大的 PDF 可能需要一些时间。</p></div>
+            <div className="processing-state"><i /><h2>正在提取和拆分内容</h2><p>{progress ? `正在读取第 ${progress.current} / ${progress.total} 页（${Math.round(progress.current / progress.total * 100)}%）` : '正在读取文档内容，请稍候。'}</p></div>
           ) : result?.questions.length ? (
             <>
               <div className="parse-summary">

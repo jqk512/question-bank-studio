@@ -1,5 +1,17 @@
 import type { Question, QuestionType } from '../types'
 
+export const questionTypeLabels: Record<QuestionType | 'all', string> = {
+  all: '全部',
+  single: '单选',
+  multiple: '多选',
+  judgment: '判断',
+  unknown: '文本',
+}
+
+export function searchTerms(query: string) {
+  return query.trim().split(/\s+/).filter(Boolean)
+}
+
 export function searchableQuestionText(question: Question) {
   return [
     question.stem,
@@ -11,7 +23,7 @@ export function searchableQuestionText(question: Question) {
 }
 
 export function filterQuestions(questions: Question[], query: string, type: QuestionType | 'all') {
-  const terms = query.trim().toLocaleLowerCase('zh-CN').split(/\s+/).filter(Boolean)
+  const terms = searchTerms(query).map((term) => term.toLocaleLowerCase('zh-CN'))
   return questions.filter((question) => {
     if (type !== 'all' && question.type !== type) return false
     if (!terms.length) return true
