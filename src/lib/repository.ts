@@ -172,6 +172,7 @@ function questionPayload(question: Question) {
     sequence: question.sequence,
     display_number: question.displayNumber,
     type: question.type,
+    stem: question.stem,
     options: question.options,
     answer: question.answer,
     answer_text: question.answerText,
