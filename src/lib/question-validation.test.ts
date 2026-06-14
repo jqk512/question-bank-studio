@@ -6,6 +6,7 @@ const baseQuestion: Question = {
   id: 'question-1',
   bankId: 'bank-1',
   sequence: 1,
+  displayNumber: 1,
   type: 'single',
   stem: '示例题目',
   options: [{ label: 'A', text: '甲' }, { label: 'B', text: '乙' }],
