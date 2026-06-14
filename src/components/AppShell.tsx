@@ -1,8 +1,15 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { BookIcon, GridIcon, UploadIcon } from './Icons'
+import { BackgroundPanel } from './BackgroundPanel'
+import type { BackgroundSettings } from '../lib/background-settings'
 
-export function AppShell() {
+interface AppShellProps {
+  bgSettings: BackgroundSettings
+  onBgChange: (changes: Partial<BackgroundSettings>) => void
+}
+
+export function AppShell({ bgSettings, onBgChange }: AppShellProps) {
   const auth = useAuth()
   const navigate = useNavigate()
   const displayName = typeof auth.user?.user_metadata.username === 'string'
@@ -27,15 +34,28 @@ export function AppShell() {
           <NavLink to="/import"><UploadIcon />导入题库</NavLink>
         </nav>
 
-        <div className="sidebar-note">
-          <BookIcon />
-          <p><strong>{auth.configured ? '云端同步模式' : '本地工作模式'}</strong>{auth.configured ? '题库与源文件保存在你的私有云端空间。' : '当前数据仅保存在这台设备的浏览器中。'}</p>
+        {/* Bottom section: bg panel + info note */}
+        <div className="sidebar-footer">
+          <BackgroundPanel settings={bgSettings} onChange={onBgChange} />
+          <div className="sidebar-note">
+            <BookIcon />
+            <p>
+              <strong>{auth.configured ? '云端同步模式' : '本地工作模式'}</strong>
+              {auth.configured ? '题库与源文件保存在你的私有云端空间。' : '当前数据仅保存在这台设备的浏览器中。'}
+            </p>
+          </div>
         </div>
       </aside>
+
       <div className="workspace">
         <header className="topbar">
-          <span className="environment-pill"><i /> {auth.configured ? 'CLOUD WORKSPACE' : 'LOCAL WORKSPACE'}</span>
-          <div className="account-menu"><span>{auth.user ? displayName : '本地模式'}</span>{auth.user && <button onClick={logout}>退出</button>}</div>
+          <span className="environment-pill">
+            <i /> {auth.configured ? 'CLOUD WORKSPACE' : 'LOCAL WORKSPACE'}
+          </span>
+          <div className="account-menu">
+            <span>{auth.user ? displayName : '本地模式'}</span>
+            {auth.user && <button onClick={logout}>退出</button>}
+          </div>
         </header>
         <main className="page"><Outlet /></main>
       </div>
