@@ -37,6 +37,7 @@ export function createTextEntries(source: string): ParsedQuestion[] {
 
   return chunks.map((text, index) => ({
     sequence: index + 1,
+    displayNumber: index + 1,
     type: 'unknown',
     stem: text,
     options: [],

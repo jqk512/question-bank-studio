@@ -49,6 +49,7 @@ interface QuestionRow {
   id: string
   bank_id: string
   sequence: number
+  display_number: number | null
   type: Question['type']
   stem: string
   options: Question['options']
@@ -150,8 +151,8 @@ function mapQuestion(row: QuestionRow): Question {
     id: row.id,
     bankId: row.bank_id,
     sequence: row.sequence,
+    displayNumber: row.display_number ?? row.sequence,
     type: row.type,
-    stem: row.stem,
     options: row.options,
     answer: row.answer,
     answerText: row.answer_text,
@@ -168,8 +169,8 @@ function questionPayload(question: Question) {
     id: question.id,
     bank_id: question.bankId,
     sequence: question.sequence,
+    display_number: question.displayNumber,
     type: question.type,
-    stem: question.stem,
     options: question.options,
     answer: question.answer,
     answer_text: question.answerText,
@@ -433,17 +434,12 @@ export async function saveQuestion(question: Question) {
   return question
 }
 
-export function sourceObjectPath(userId: string, bankId: string, fileName: string) {
-  const extension = fileName.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin'
-  return `${userId}/${bankId}/source.${extension}`
-}
-
 export async function uploadSourceFile(file: File, bankId: string) {
   if (!isSupabaseConfigured) return undefined
   const userId = await currentUserId()
-  // Storage object keys stay ASCII-only; the original Unicode name is kept on the bank row.
-  const path = sourceObjectPath(userId, bankId, file.name)
-  const extension = path.split('.').pop()
+  const safeName = file.name.replace(/[\\/]+/g, '-').replace(/\s+/g, '-').slice(-180)
+  const path = `${userId}/${bankId}/${safeName}`
+  const extension = file.name.split('.').pop()?.toLowerCase()
   const fallbackMime = extension === 'pdf'
     ? 'application/pdf'
     : extension === 'docx'
