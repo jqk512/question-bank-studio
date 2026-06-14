@@ -34,6 +34,7 @@ create table public.questions (
   id uuid primary key default gen_random_uuid(),
   bank_id uuid not null references public.question_banks(id) on delete cascade,
   sequence integer not null check (sequence > 0),
+  display_number integer,
   type public.question_type not null default 'unknown',
   stem text not null,
   options jsonb not null default '[]'::jsonb check (jsonb_typeof(options) = 'array'),
