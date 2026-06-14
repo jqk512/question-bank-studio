@@ -153,6 +153,7 @@ function mapQuestion(row: QuestionRow): Question {
     sequence: row.sequence,
     displayNumber: row.display_number ?? row.sequence,
     type: row.type,
+    stem: row.stem,
     options: row.options,
     answer: row.answer,
     answerText: row.answer_text,
