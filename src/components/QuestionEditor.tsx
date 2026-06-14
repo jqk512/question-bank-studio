@@ -39,9 +39,9 @@ export function QuestionEditor({ question, onChange }: QuestionEditorProps) {
   return (
     <article className={`editor-card ${question.warnings.length ? 'has-warning' : ''}`}>
       <div className="editor-heading">
-        <span className="question-number">{String(question.sequence).padStart(3, '0')}</span>
+        <span className="question-number">{String(question.displayNumber).padStart(3, '0')}</span>
         <select
-          aria-label={`第 ${question.sequence} 题题型`}
+          aria-label={`第 ${question.displayNumber} 题题型`}
           value={question.type}
           onChange={(event) => updateQuestion({ ...question, type: event.target.value as QuestionType })}
         >
