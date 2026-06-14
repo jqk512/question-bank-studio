@@ -12,6 +12,7 @@ export interface Question {
   id: string
   bankId: string
   sequence: number
+  displayNumber: number
   type: QuestionType
   stem: string
   options: QuestionOption[]
@@ -60,6 +61,7 @@ export interface BankGroupMembership {
 
 export interface ParsedQuestion {
   sequence: number
+  displayNumber: number
   type: QuestionType
   stem: string
   options: QuestionOption[]
