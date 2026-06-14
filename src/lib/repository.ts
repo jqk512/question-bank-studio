@@ -434,11 +434,16 @@ export async function saveQuestion(question: Question) {
   return question
 }
 
+export function sourceObjectPath(userId: string, bankId: string, fileName: string) {
+  const match = /\.([A-Za-z0-9]+)$/.exec(fileName)
+  const extension = match ? match[1].toLowerCase() : 'bin'
+  return `${userId}/${bankId}/source.${extension}`
+}
+
 export async function uploadSourceFile(file: File, bankId: string) {
   if (!isSupabaseConfigured) return undefined
   const userId = await currentUserId()
-  const safeName = file.name.replace(/[\\/]+/g, '-').replace(/\s+/g, '-').slice(-180)
-  const path = `${userId}/${bankId}/${safeName}`
+  const path = sourceObjectPath(userId, bankId, file.name)
   const extension = file.name.split('.').pop()?.toLowerCase()
   const fallbackMime = extension === 'pdf'
     ? 'application/pdf'
